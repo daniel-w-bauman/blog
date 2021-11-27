@@ -26,71 +26,21 @@
 
 void report(struct sockaddr_in *serverAddress);
 
+void getPosts(int start, char **buffer);
 
-void getPosts(int start, char **buffer) {
-	struct dirent *dp;
-	DIR *dir = opendir("posts/");
+void insertPosts(int fd, int start);
 
-	// Unable to open directory stream
-	if (!dir)
-		return;
+void sendBody(int fd, char *fname);
 
-	for(int i=0; (dp = readdir(dir)) != NULL; ){
-		if(strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0){
-			if((i >= start) && (i < start+NUM_POSTS)){
-				*buffer++ = strdup(dp->d_name);
-			}
-			i++;
-		}
-	}
+void getFirstLine(char buffer[], char result[]);
 
-	// Close directory stream
-	closedir(dir);
-}
+int requestType(char request[]);
 
-void insertPosts(int fd, int start) {
-	char *fileNames[NUM_POSTS];
-	getPosts(start, fileNames);
-	char line[100];
-	for(int i = 0; i < NUM_POSTS; ++i) {
-		char filename[100];
-		size_t ret = snprintf(filename, sizeof filename, "posts/%s", fileNames[i]);
-		if(ret >= sizeof filename)
-			fprintf(stderr, "uh oh, stinky! too much filename");
-		FILE *postData = fopen(filename, "r");
-		dprintf(fd, "<h1>Post %d</h1>\n", i);
-		while(fgets(line, sizeof line, postData))
-			dprintf(fd, "<p>%s</p>\n", line);
-		fclose(postData);
-	}
-	for(int i = 0; i < 5; i++)
-		free(fileNames[i]);
-}
-
-void sendBody(int fd, int start) {
-	FILE *htmlData = fopen("index.html", "r");
-	char line[100];
-	while(fgets(line, sizeof line, htmlData) != 0) {
-		if(strcmp(line, "		<title>Blog</title>\n") == 0){
-			dprintf(fd, "<title>%s</title>\n", BLOGNAME);
-		} else if(strcmp(line, "		<h1>Blog</h1>\n") == 0){
-			dprintf(fd, "<h1>%s</h1>\n", BLOGNAME);
-			insertPosts(fd, start);
-		} else {
-			dprintf(fd, "%s", line);
-		}
-	}
-}
-
-
-void getFirstLine(char buffer[], char result[]){
-	for(char c; ((c = *buffer++) != EOF) && (c != '\n'); *result++ = c);
-}
-
+void getAddress(char buffer[], char result[]);
 
 int main(void) {
 
-	signal(SIGCHLD, SIG_IGN);
+//	signal(SIGCHLD, SIG_IGN);
 
 	// Socket setup: creates an endpoint for communication, returns a descriptor
 	int serverSocket = socket(
@@ -122,39 +72,41 @@ int main(void) {
 	report(&serverAddress);     // Custom report function
 
 	// Wait for a connection, create a connected socket if a connection is pending
-	while(1) {
+	char buffer[2048] = {0};
+	char firstline[2048] = {0};
+	char address[2048] = {0};
+	for(;;) {
 		int clientSocket = accept(serverSocket, NULL, NULL);
-		char buffer[2048] = {0};
-		read(clientSocket, buffer, SOCK_NONBLOCK);
-		char firstLine[2048] = {0};
-		getFirstLine(buffer, firstLine);
-		if(strcmp(firstLine, "GET /favicon.ico HTTP/1.1\n")){
-			printf("Ignore favicon\n");
-		} else {
-			dprintf(clientSocket, "%s", HTTP_HEADER);
-			sendBody(clientSocket, 0);
-			close(clientSocket);
-		}
-		//send(clientSocket, HTTP_HEADER, sizeof HTTP_HEADER, 0);
-		/*switch(fork()) {
+		switch(fork()) {
 		case -1:
 			perror("fork");
 			break;
+			exit(1);
 		case 0:
-			printf("Case 1\n");
-			close(serverSocket);
-			dprintf(clientSocket, "%s", HTTP_HEADER);
-			sendBody(clientSocket, 0);
-			close(clientSocket);
-			break;
+			read(clientSocket, buffer, SOCK_NONBLOCK);
+			int rtype = requestType(buffer);
+			if(rtype == 0){
+				sendBody(clientSocket, "index.html");
+			} else if(rtype == 1){
+				sendBody(clientSocket, "favicon.ico");
+			} else if(rtype == 2){
+				getFirstLine(buffer, firstline);
+				getAddress(firstline, address);
+				sendBody(clientSocket, address);
+			} else {
+				printf("Sending 404\n");
+				dprintf(clientSocket, "%s\r\n\n", "HTTP/1.1 404 Not Found");
+			}
+			shutdown(clientSocket, SHUT_RDWR);
+			close(clientSocket); // child closes connection
+			exit(0);
 		default:
-			printf("Case 2\n");
-			close(clientSocket);
 			break;
-		}*/
+		}
 	}
 	return 0;
 }
+
 
 void report(struct sockaddr_in *serverAddress) {
 	char hostBuffer[INET6_ADDRSTRLEN];
@@ -173,4 +125,108 @@ void report(struct sockaddr_in *serverAddress) {
 		printf("It's not working!!\n");
 	}
 	printf("Server listening on http://%s:%d\n", hostBuffer, PORT);
+}
+
+
+void getPosts(int start, char **buffer) {
+	struct dirent *dp;
+	DIR *dir = opendir("posts/");
+
+	// Unable to open directory stream
+	if (!dir)
+		return;
+
+	for(int i=0; (dp = readdir(dir)) != NULL; ){
+		if(strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0){
+			if((i >= start) && (i < start+NUM_POSTS)){
+				*buffer++ = strdup(dp->d_name);
+			}
+			i++;
+		}
+	}
+
+	// Close directory stream
+	closedir(dir);
+}
+
+
+void insertPosts(int fd, int start) {
+	char *fileNames[NUM_POSTS];
+	getPosts(start, fileNames);
+	char line[100];
+	for(int i = 0; i < NUM_POSTS; ++i) {
+		char filename[100];
+		size_t ret = snprintf(filename, sizeof filename, "posts/%s", fileNames[i]);
+		if(ret >= sizeof filename)
+			fprintf(stderr, "uh oh, stinky! too much filename");
+		FILE *postData = fopen(filename, "r");
+		dprintf(fd, "<h1>Post %d</h1>\n", i);
+		while(fgets(line, sizeof line, postData))
+			dprintf(fd, "<p>%s</p>\n", line);
+		fclose(postData);
+	}
+	for(int i = 0; i < 5; i++)
+		free(fileNames[i]);
+}
+
+
+void sendBody(int fd, char *fname) {
+	dprintf(fd, "%s", HTTP_HEADER);
+	FILE *htmlData = fopen(fname, "r");
+	char line[100];
+
+	if(htmlData == NULL){
+		dprintf(fd, "%s\r\n\n", "HTTP/1.1 404 Not Found");
+	} else {
+		while(fgets(line, sizeof line, htmlData) != 0) {
+			dprintf(fd, "%s", line);
+		}
+	}
+}
+
+
+void getFirstLine(char buffer[], char result[]){
+//	for(char c; ((c = *buffer++) != EOF) && (c != '\n') && (c != '\0'); *result++ = c, i++);
+	int i = 0;
+	char c;
+	while(((c = buffer[i]) != EOF) && (c != '\n') && (c != '\r') && (c != '\0')){
+		result[i] = c;
+		i++;
+	}
+	result[i] = '\0';
+}
+
+/*
+	Categorization of requests:
+	-1 (default) - error
+	0 - get /
+	1 - get /favicon
+*/
+int requestType(char request[]){
+	char firstline[2048];
+	getFirstLine(request, firstline);
+	int category = -1;
+	if(strcmp(firstline, "GET / HTTP/1.1") == 0){
+		category = 0;
+	} else if(strcmp(firstline, "GET /favicon.ico HTTP/1.1") == 0){
+		category = 1;
+	} else {
+		if((int)strlen(firstline) > 20){
+			category = 2;
+		} else {
+			printf("First line not recognized\n");
+		}
+	}
+	return category;
+}
+
+
+void getAddress(char buffer[], char result[]){
+	int i = 5;
+	char c;
+	while(((c = buffer[i]) != '\0') && (c != ' ') && (c != '\r') && (c != EOF) && (c != '\n') && (i < (int)strlen(buffer))){
+		result[i-5] = c;
+		i++;
+	}
+	result[i-5] = '\0';
 }
