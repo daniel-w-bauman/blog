@@ -19,7 +19,7 @@
 #define SIZE 1024
 #define BACKLOG 10  // Passed to listen()
 #define PORT 3000
-#define BLOGNAME "Blogger I hardly knew her"
+#define BLOGNAME "Blog"
 #define NUM_POSTS 5
 #define HTTP_HEADER "HTTP/1.1 200 OK\r\n\n"
 
