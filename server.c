@@ -186,9 +186,10 @@ void report(struct sockaddr_in *serverAddress) {
 
 void sendBody(int fd, char *fname) {
 	dprintf(fd, "%s", HTTP_HEADER);
-	FILE *htmlData = fopen(fname, "r");
 	char line[100];
-
+	char filename[1024] = "public/";
+	strcat(filename, fname);
+	FILE *htmlData = fopen(filename, "r");
 	if(htmlData == NULL){
 		dprintf(fd, "%s\r\n\n", "HTTP/1.1 404 Not Found");
 	} else {
