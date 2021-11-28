@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Blog</title>
 		<link rel="stylesheet" type="text/css" href="style.css"/>
+		<title>Blog</title>
 	</head>
 	<body>
 		<div class="nav-container">
@@ -19,16 +19,18 @@
 			</ul>
 		</div>
 		<div>
-			<form method="POST" action="/signin">
+			<form method="POST" action="/upload">
 			  <div>
-			    <label>Username</label>
-			    <input type="text" name="username">
+			    <label>Title</label>
+			    <input type="text" name="title">
 			  </div>
-			  <div>
-			    <label>Password</label>
-			    <input type="password" name="password">
+			  <div class="mb-2">
+			    <label class="form-label">Text</label>
+			    <textarea name="password" class="form-control" rows=10 cols="50">
+						Type your blog post here.
+					</textarea>
 			  </div>
-			  <button type="submit">Login</button>
+			  <button type="submit" class="btn btn-primary">Submit</button>
 			</form>
 		</div>
 	</body>

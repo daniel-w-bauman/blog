@@ -7,8 +7,8 @@ for l in fr.readlines():
 
 fw = open('public/index.html', 'w')
 for l in lines:
-	if 'list-group-item' not in l:
+	if 'id=\"post\"' not in l:
 		fw.write(l)
-		if '<ul' in l:
+		if 'id=\"posts\"' in l:
 			for f in listdir('public/posts'):
-				fw.write('\t\t\t\t<a href=\"{}\" class=\"list-group-item list-group-item-action\">{}</a>\n'.format('/posts/{}'.format(f), f[:-5]))
+				fw.write('\t\t\t\t<li id=\"post-item\"><a href=\"{}\" id=\"post\">{}</a></li>\n'.format('/posts/{}'.format(f), f[:-5]))

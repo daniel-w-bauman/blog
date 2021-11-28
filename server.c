@@ -31,10 +31,6 @@ typedef struct {
 
 void report(struct sockaddr_in *serverAddress);
 
-void getPosts(int start, char **buffer);
-
-void insertPosts(int fd, int start);
-
 void sendBody(int fd, char *fname);
 
 void getFirstLine(char buffer[], char result[]);
@@ -111,13 +107,9 @@ int main(void) {
 		case 0:
 			read(clientSocket, buffer, SOCK_NONBLOCK);
 			int rtype = requestType(buffer);
-			if(rtype == 0){
+			if(rtype == 0){ // GET /
 				sendBody(clientSocket, "index.html");
-			} else if(rtype == 1){
-				sendBody(clientSocket, "favicon.ico");
-			} else if(rtype == 2) {
-				sendBody(clientSocket, "login.html");
-			} else if(rtype == 3) {
+			} else if(rtype == 1){ // POST /login
 				int state = 0;
 				int j = 0;
 				for(size_t i = 0; i < sizeof buffer; ++i){
@@ -145,11 +137,11 @@ int main(void) {
 					fprintf(stderr, "login successful for %s, token is %d\n", username, token);
 				}
 				sendBody(clientSocket, "login.html");
-			} else if(rtype == 4){
+			} else if(rtype == 2){ // GET /something
 				getFirstLine(buffer, firstline);
 				getAddress(firstline, address);
 				sendBody(clientSocket, address);
-			} else {
+			} else { // unrecognized request
 				printf("Sending 404\n");
 				dprintf(clientSocket, "%s\r\n\n", "HTTP/1.1 404 Not Found");
 			}
@@ -214,10 +206,8 @@ void getFirstLine(char buffer[], char result[]){
 	Categorization of requests:
 	-1 (default) - error
 	0 - get /
-	1 - get /favicon
-	2 - get /login
-	3 - post /signin
-	4 - get* | len > 20
+	1 - post /signin
+	2 - get /something
 */
 int requestType(char request[]){
 	char firstline[2048];
@@ -225,17 +215,16 @@ int requestType(char request[]){
 	int category = -1;
 	if(strcmp(firstline, "GET / HTTP/1.1") == 0){
 		category = 0;
-	} else if(strcmp(firstline, "GET /favicon.ico HTTP/1.1") == 0){
-		category = 1;
-	} else if(strcmp(firstline, "GET /login HTTP/1.1") == 0) {
-		category = 2;
 	} else if(strcmp(firstline, "POST /signin HTTP/1.1") == 0){
-		category = 3;
+		category = 1;
 	} else {
-		if((int)strlen(firstline) > 20){
-			category = 4;
-		} else {
-			printf("First line not recognized\n");
+		char buffer[4];
+		buffer[0] = request[0];
+		buffer[1] = request[1];
+		buffer[2] = request[2];
+		buffer[3] = '\0';
+		if(strcmp(buffer, "GET") == 0){
+			category = 2;
 		}
 	}
 	return category;
