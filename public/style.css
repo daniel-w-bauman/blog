@@ -22,14 +22,11 @@ a {
 	list-style-type: none;
 }
 
-#post {
-	font-size: 25px;
-}
-
 #post-item {
 	padding-top: 15px;
 	padding-bottom: 15px;
 	border-top: 1px solid black;
+	font-size: 25px;
 }
 
 #post-item:last-child {
@@ -38,4 +35,30 @@ a {
 
 p {
 	font-size: 20px;
+	padding-left: 15%;
+	padding-right: 15%;
+}
+
+h1 {
+	padding-left: 10%;
+}
+
+label {
+	font-size: 25px;
+	margin: 20px;
+}
+
+input {
+	font-size: 25px;
+	margin: 20px;
+}
+
+textarea {
+	font-size: 25px;
+	margin: 20px;
+}
+
+button {
+	font-size: 25px;
+	margin: 20px;
 }

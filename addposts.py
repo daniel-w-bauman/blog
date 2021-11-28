@@ -7,8 +7,8 @@ for l in fr.readlines():
 
 fw = open('public/index.html', 'w')
 for l in lines:
-	if 'id=\"post\"' not in l:
+	if 'id=\"post-item\"' not in l:
 		fw.write(l)
 		if 'id=\"posts\"' in l:
 			for f in listdir('public/posts'):
-				fw.write('\t\t\t\t<li id=\"post-item\"><a href=\"{}\" id=\"post\">{}</a></li>\n'.format('/posts/{}'.format(f), f[:-5]))
+				fw.write('\t\t\t\t<li id=\"post-item\" onclick=\"location.href = \'{}\';\">{}</li>\n'.format('/posts/{}'.format(f), f[:-5]))
