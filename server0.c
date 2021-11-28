@@ -23,11 +23,6 @@
 #define NUM_POSTS 5
 #define HTTP_HEADER "HTTP/1.1 200 OK\r\n\n"
 
-typedef struct {
-	char *username;
-	char *password;
-	int token;
-} User;
 
 void report(struct sockaddr_in *serverAddress);
 
@@ -43,23 +38,9 @@ int requestType(char request[]);
 
 void getAddress(char buffer[], char result[]);
 
-void getCreds(char buffer[], char username[], char password[]);
-
-void ctrlcHandler(int signaln);
-
-int login(User user);
-
-int serverSocket;
-
-User users[] = {{"daniel", "danielpass", -1}, {"charlie", "charliepass", -1}};
-
-int tokenN = 0;
-
 int main(void) {
-	signal(SIGINT, ctrlcHandler);
-
 	// Socket setup: creates an endpoint for communication, returns a descriptor
-	serverSocket = socket(
+	int serverSocket = socket(
 		AF_INET,      // Domain: specifies protocol family
 		SOCK_STREAM,  // Type: specifies communication semantics
 		0             // Protocol: 0 because there is a single protocol for the specified family
@@ -74,19 +55,11 @@ int main(void) {
 	// Bind socket to local address
 	// bind() assigns the address specified by serverAddress to the socket
 	// referred to by the file descriptor serverSocket.
-	int flag = 1;
-  if (-1 == setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag))) {
-      err(1, "setsockopt fail");
-  }
-	int ret = bind(
+	bind(
 		serverSocket,                         // file descriptor referring to a socket
 		(struct sockaddr *) &serverAddress,   // Address to be assigned to the socket
 		sizeof serverAddress                  // Size (bytes) of the address structure
 	);
-
-	if(ret < 0){
-		err(1, "unable to bind");
-	}
 
 	// Mark socket to listen for incoming connections
 	int listening = listen(serverSocket, BACKLOG);
@@ -97,12 +70,10 @@ int main(void) {
 
 	// Wait for a connection, create a connected socket if a connection is pending
 	char buffer[2048] = {0};
+	char firstline[2048] = {0};
 	char address[2048] = {0};
-	char username[2048] = {0};
-	char password[2048] = {0};
 	for(;;) {
 		int clientSocket = accept(serverSocket, NULL, NULL);
-		char firstline[2048] = {0};
 		switch(fork()) {
 		case -1:
 			perror("fork");
@@ -110,49 +81,7 @@ int main(void) {
 			exit(1);
 		case 0:
 			read(clientSocket, buffer, SOCK_NONBLOCK);
-			int rtype = requestType(buffer);
-			if(rtype == 0){
-				sendBody(clientSocket, "index.html");
-			} else if(rtype == 1){
-				sendBody(clientSocket, "favicon.ico");
-			} else if(rtype == 2) {
-				sendBody(clientSocket, "login.html");
-			} else if(rtype == 3) {
-				int state = 0;
-				int j = 0;
-				for(size_t i = 0; i < sizeof buffer; ++i){
-					if(buffer[i] == '\r' && state == 0)
-						state = 1;
-					else if(buffer[i] == '\n' && state == 1)
-						state = 2;
-					else if(buffer[i] == '\r' && state == 2)
-						state = 3;
-					else if(buffer[i] == '\n' && state == 3)
-						state = 4;
-					else if(state == 4){
-						//fprintf(stderr, "Found newline\n");
-						firstline[j++] = buffer[i];
-					}	else {
-						state = 0;
-					}
-				}
-				firstline[j] = '\0';
-				getCreds(firstline, username, password);
-				int token = login((User){username, password, -1});
-				if(token == -1){
-					fprintf(stderr, "login unsuccessful for %s\n", username);
-				} else {
-					fprintf(stderr, "login successful for %s, token is %d\n", username, token);
-				}
-				sendBody(clientSocket, "login.html");
-			} else if(rtype == 4){
-				getFirstLine(buffer, firstline);
-				getAddress(firstline, address);
-				sendBody(clientSocket, address);
-			} else {
-				printf("Sending 404\n");
-				dprintf(clientSocket, "%s\r\n\n", "HTTP/1.1 404 Not Found");
-			}
+			printf("%s\n", buffer);
 			shutdown(clientSocket, SHUT_RDWR);
 			close(clientSocket); // child closes connection
 			exit(0);
@@ -215,8 +144,7 @@ void getFirstLine(char buffer[], char result[]){
 	0 - get /
 	1 - get /favicon
 	2 - get /login
-	3 - post /signin
-	4 - get* | len > 20
+	3 - get* | len > 20
 */
 int requestType(char request[]){
 	char firstline[2048];
@@ -228,11 +156,9 @@ int requestType(char request[]){
 		category = 1;
 	} else if(strcmp(firstline, "GET /login HTTP/1.1") == 0) {
 		category = 2;
-	} else if(strcmp(firstline, "POST /signin HTTP/1.1") == 0){
-		category = 3;
 	} else {
 		if((int)strlen(firstline) > 20){
-			category = 4;
+			category = 3;
 		} else {
 			printf("First line not recognized\n");
 		}
@@ -249,57 +175,4 @@ void getAddress(char buffer[], char result[]){
 		i++;
 	}
 	result[i-5] = '\0';
-}
-
-void getCreds(char buffer[], char username[], char password[]){
-	char c;
-	int state = 0;
-	while((c = *buffer++) != '\0'){
-		if(state == 0){
-			if(c == '='){
-				state = 1;
-			}
-		} else if(state == 1){
-			if(c == '&'){
-				state = 2;
-			} else {
-				*username++ = c;
-			}
-		} else if(state == 2){
-			if(c == '='){
-				state = 3;
-			}
-		} else if(state == 3){
-			*password++ = c;
-		}
-	}
-	*username++ = '\0';
-	*password++ = '\0';
-}
-
-
-void ctrlcHandler(int signaln){
-	(void)signaln;
-	shutdown(serverSocket, SHUT_RDWR);
-	close(serverSocket);
-	fprintf(stdout, "shutting down server.\n");
-	exit(1);
-}
-
-
-int login(User user){
-	int token = -1;
-	fprintf(stderr, "attempted username %s password %s\n", user.username, user.password);
-	for(size_t i = 0; i < (sizeof users / sizeof *users); i++){
-		if(strcmp(user.username, users[i].username) == 0){
-			fprintf(stderr, "found username\n");
-			if(strcmp(user.password, users[i].password) == 0){
-				fprintf(stderr, "found password\n");
-				token = tokenN++;
-				users[i].token = token;
-				fprintf(stderr, "set token %d\n", token);
-			}
-		}
-	}
-	return token;
 }
