@@ -13,13 +13,17 @@
 			</div>
 		</nav>
 		<div style="padding-top: 75px" class="container">
-			<ul class="list-group">
-				<a href="/posts/post1.html" class="list-group-item list-group-item-action">post1</a>
-				<a href="/posts/post2.html" class="list-group-item list-group-item-action">post2</a>
-				<a href="/posts/post3.html" class="list-group-item list-group-item-action">post3</a>
-				<a href="/posts/post4.html" class="list-group-item list-group-item-action">post4</a>
-				<a href="/posts/post5.html" class="list-group-item list-group-item-action">post5</a>
-			</ul>
+			<form method="POST" action="/signin">
+			  <div class="mb-2">
+			    <label class="form-label">Username</label>
+			    <input type="text" class="form-control">
+			  </div>
+			  <div class="mb-2">
+			    <label class="form-label">Password</label>
+			    <input type="password" class="form-control">
+			  </div>
+			  <button type="submit" class="btn btn-primary">Login</button>
+			</form>
 		</div>
 	</body>
 </html>

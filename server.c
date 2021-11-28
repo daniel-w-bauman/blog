@@ -39,9 +39,6 @@ int requestType(char request[]);
 void getAddress(char buffer[], char result[]);
 
 int main(void) {
-
-//	signal(SIGCHLD, SIG_IGN);
-
 	// Socket setup: creates an endpoint for communication, returns a descriptor
 	int serverSocket = socket(
 		AF_INET,      // Domain: specifies protocol family
@@ -89,7 +86,9 @@ int main(void) {
 				sendBody(clientSocket, "index.html");
 			} else if(rtype == 1){
 				sendBody(clientSocket, "favicon.ico");
-			} else if(rtype == 2){
+			} else if(rtype == 2) {
+				sendBody(clientSocket, "login.html");
+			} else if(rtype == 3){
 				getFirstLine(buffer, firstline);
 				getAddress(firstline, address);
 				sendBody(clientSocket, address);
@@ -128,48 +127,6 @@ void report(struct sockaddr_in *serverAddress) {
 }
 
 
-void getPosts(int start, char **buffer) {
-	struct dirent *dp;
-	DIR *dir = opendir("posts/");
-
-	// Unable to open directory stream
-	if (!dir)
-		return;
-
-	for(int i=0; (dp = readdir(dir)) != NULL; ){
-		if(strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0){
-			if((i >= start) && (i < start+NUM_POSTS)){
-				*buffer++ = strdup(dp->d_name);
-			}
-			i++;
-		}
-	}
-
-	// Close directory stream
-	closedir(dir);
-}
-
-
-void insertPosts(int fd, int start) {
-	char *fileNames[NUM_POSTS];
-	getPosts(start, fileNames);
-	char line[100];
-	for(int i = 0; i < NUM_POSTS; ++i) {
-		char filename[100];
-		size_t ret = snprintf(filename, sizeof filename, "posts/%s", fileNames[i]);
-		if(ret >= sizeof filename)
-			fprintf(stderr, "uh oh, stinky! too much filename");
-		FILE *postData = fopen(filename, "r");
-		dprintf(fd, "<h1>Post %d</h1>\n", i);
-		while(fgets(line, sizeof line, postData))
-			dprintf(fd, "<p>%s</p>\n", line);
-		fclose(postData);
-	}
-	for(int i = 0; i < 5; i++)
-		free(fileNames[i]);
-}
-
-
 void sendBody(int fd, char *fname) {
 	dprintf(fd, "%s", HTTP_HEADER);
 	FILE *htmlData = fopen(fname, "r");
@@ -186,7 +143,6 @@ void sendBody(int fd, char *fname) {
 
 
 void getFirstLine(char buffer[], char result[]){
-//	for(char c; ((c = *buffer++) != EOF) && (c != '\n') && (c != '\0'); *result++ = c, i++);
 	int i = 0;
 	char c;
 	while(((c = buffer[i]) != EOF) && (c != '\n') && (c != '\r') && (c != '\0')){
@@ -201,6 +157,8 @@ void getFirstLine(char buffer[], char result[]){
 	-1 (default) - error
 	0 - get /
 	1 - get /favicon
+	2 - get /login
+	3 - get* | len > 20
 */
 int requestType(char request[]){
 	char firstline[2048];
@@ -210,9 +168,11 @@ int requestType(char request[]){
 		category = 0;
 	} else if(strcmp(firstline, "GET /favicon.ico HTTP/1.1") == 0){
 		category = 1;
+	} else if(strcmp(firstline, "GET /login HTTP/1.1") == 0) {
+		category = 2;
 	} else {
 		if((int)strlen(firstline) > 20){
-			category = 2;
+			category = 3;
 		} else {
 			printf("First line not recognized\n");
 		}
