@@ -11,4 +11,4 @@ for l in lines:
 		fw.write(l)
 		if 'id=\"posts\"' in l:
 			for f in listdir('public/posts'):
-				fw.write('\t\t\t\t<li id=\"post-item\" onclick=\"location.href = \'{}\';\">{}</li>\n'.format('/posts/{}'.format(f), f[:-5]))
+				fw.write('\t\t\t\t<li id=\"post-item\" onclick=\"location.href = \'{}\';\">{}</li>\n'.format('/posts/{}'.format(f), ' '.join(f.split('-'))[:-5]))

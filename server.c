@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
 #include <netdb.h> // for getnameinfo()
@@ -33,17 +34,35 @@ void report(struct sockaddr_in *serverAddress);
 
 void sendBody(int fd, char *fname);
 
-void getFirstLine(char buffer[], char result[]);
+void getFirstLine(char *buffer, char *result);
 
-int requestType(char request[]);
+int requestType(char *request);
 
-void getAddress(char buffer[], char result[]);
+void getAddress(char *buffer, char *result);
 
-void getCreds(char buffer[], char username[], char password[]);
+void getCreds(char *buffer, char *username, char *password);
 
 void ctrlcHandler(int signaln);
 
 int login(User user);
+
+void getPostBody(char *buffer, char *result);
+
+void processUpload(char *buffer, char *title, char *text);
+
+char from_hex(char ch);
+
+char to_hex(char code);
+
+char *url_encode(char *str);
+
+char *url_decode(char *str);
+
+void writePost(char *title, char *text);
+
+void cleanPostName(char *postName, char *result);
+
+void updateIndex();
 
 int serverSocket;
 
@@ -92,44 +111,33 @@ int main(void) {
 	report(&serverAddress);     // Custom report function
 
 	// Wait for a connection, create a connected socket if a connection is pending
-	char buffer[2048] = {0};
-	char address[2048] = {0};
-	char username[2048] = {0};
-	char password[2048] = {0};
 	for(;;) {
 		int clientSocket = accept(serverSocket, NULL, NULL);
-		char firstline[2048] = {0};
-		switch(fork()) {
-		case -1:
+		int pid = fork();
+		if(pid == -1){
 			perror("fork");
 			break;
 			exit(1);
-		case 0:
+		} else if(pid == 0){ // child process
+			char buffer[2048] = {0};
 			read(clientSocket, buffer, SOCK_NONBLOCK);
 			int rtype = requestType(buffer);
 			if(rtype == 0){ // GET /
 				sendBody(clientSocket, "index.html");
-			} else if(rtype == 1){ // POST /login
-				int state = 0;
-				int j = 0;
-				for(size_t i = 0; i < sizeof buffer; ++i){
-					if(buffer[i] == '\r' && state == 0)
-						state = 1;
-					else if(buffer[i] == '\n' && state == 1)
-						state = 2;
-					else if(buffer[i] == '\r' && state == 2)
-						state = 3;
-					else if(buffer[i] == '\n' && state == 3)
-						state = 4;
-					else if(state == 4){
-						//fprintf(stderr, "Found newline\n");
-						firstline[j++] = buffer[i];
-					}	else {
-						state = 0;
-					}
-				}
-				firstline[j] = '\0';
-				getCreds(firstline, username, password);
+			} else if(rtype == 1){ // GET /something
+				char *firstline = malloc(2048);
+				getFirstLine(buffer, firstline);
+				char *address = malloc(strlen(firstline));
+				getAddress(firstline, address);
+				sendBody(clientSocket, address);
+				free(address);
+				free(firstline);
+			} else if(rtype == 2){ // POST /signin
+				char *postBody = malloc(2048);
+				getPostBody(buffer, postBody);
+				char *username = malloc(strlen(postBody));
+				char *password = malloc(strlen(postBody));
+				getCreds(postBody, username, password);
 				int token = login((User){username, password, -1});
 				if(token == -1){
 					fprintf(stderr, "login unsuccessful for %s\n", username);
@@ -137,10 +145,25 @@ int main(void) {
 					fprintf(stderr, "login successful for %s, token is %d\n", username, token);
 				}
 				sendBody(clientSocket, "login.html");
-			} else if(rtype == 2){ // GET /something
-				getFirstLine(buffer, firstline);
-				getAddress(firstline, address);
-				sendBody(clientSocket, address);
+				free(password);
+				free(username);
+				free(postBody);
+			} else if(rtype == 3){ // POST /upload
+				char *postBody = malloc(2048);
+				getPostBody(buffer, postBody);
+				char *title = malloc(strlen(postBody));
+				char *text = malloc(strlen(postBody));
+				processUpload(postBody, title, text);
+				char *decoded_title = url_decode(title);
+				char *decoded_text = url_decode(text);
+				writePost(decoded_title, decoded_text);
+				updateIndex();
+				sendBody(clientSocket, "post.html");
+				free(decoded_text);
+				free(decoded_title);
+				free(title);
+				free(text);
+				free(postBody);
 			} else { // unrecognized request
 				printf("Sending 404\n");
 				dprintf(clientSocket, "%s\r\n\n", "HTTP/1.1 404 Not Found");
@@ -148,8 +171,6 @@ int main(void) {
 			shutdown(clientSocket, SHUT_RDWR);
 			close(clientSocket); // child closes connection
 			exit(0);
-		default:
-			break;
 		}
 	}
 	return 0;
@@ -188,11 +209,12 @@ void sendBody(int fd, char *fname) {
 		while(fgets(line, sizeof line, htmlData) != 0) {
 			dprintf(fd, "%s", line);
 		}
+		fclose(htmlData);
 	}
 }
 
 
-void getFirstLine(char buffer[], char result[]){
+void getFirstLine(char *buffer, char *result){
 	int i = 0;
 	char c;
 	while(((c = buffer[i]) != EOF) && (c != '\n') && (c != '\r') && (c != '\0')){
@@ -206,17 +228,20 @@ void getFirstLine(char buffer[], char result[]){
 	Categorization of requests:
 	-1 (default) - error
 	0 - get /
-	1 - post /signin
-	2 - get /something
+	1 - get /something
+	2 - post /signin
+	3 - post /upload
 */
-int requestType(char request[]){
+int requestType(char *request){
 	char firstline[2048];
 	getFirstLine(request, firstline);
 	int category = -1;
 	if(strcmp(firstline, "GET / HTTP/1.1") == 0){
 		category = 0;
 	} else if(strcmp(firstline, "POST /signin HTTP/1.1") == 0){
-		category = 1;
+		category = 2;
+	} else if(strcmp(firstline, "POST /upload HTTP/1.1") == 0){
+		category = 3;
 	} else {
 		char buffer[4];
 		buffer[0] = request[0];
@@ -224,14 +249,14 @@ int requestType(char request[]){
 		buffer[2] = request[2];
 		buffer[3] = '\0';
 		if(strcmp(buffer, "GET") == 0){
-			category = 2;
+			category = 1;
 		}
 	}
 	return category;
 }
 
 
-void getAddress(char buffer[], char result[]){
+void getAddress(char *buffer, char *result){
 	int i = 5;
 	char c;
 	while(((c = buffer[i]) != '\0') && (c != ' ') && (c != '\r') && (c != EOF) && (c != '\n') && (i < (int)strlen(buffer))){
@@ -241,7 +266,8 @@ void getAddress(char buffer[], char result[]){
 	result[i-5] = '\0';
 }
 
-void getCreds(char buffer[], char username[], char password[]){
+
+void getCreds(char *buffer, char *username, char *password){
 	char c;
 	int state = 0;
 	while((c = *buffer++) != '\0'){
@@ -279,17 +305,184 @@ void ctrlcHandler(int signaln){
 
 int login(User user){
 	int token = -1;
-	fprintf(stderr, "attempted username %s password %s\n", user.username, user.password);
 	for(size_t i = 0; i < (sizeof users / sizeof *users); i++){
 		if(strcmp(user.username, users[i].username) == 0){
-			fprintf(stderr, "found username\n");
 			if(strcmp(user.password, users[i].password) == 0){
-				fprintf(stderr, "found password\n");
-				token = tokenN++;
+				token = tokenN;
+				tokenN++;
 				users[i].token = token;
-				fprintf(stderr, "set token %d\n", token);
 			}
 		}
 	}
 	return token;
+}
+
+
+void getPostBody(char *buffer, char *result){
+	int state = 0;
+	int i = 0;
+	int j = 0;
+	char c;
+	while(((c = buffer[i]) != '\0') && (c != EOF) && (i < 2048)){
+		i++;
+		if(buffer[i] == '\r' && state == 0)
+			state = 1;
+		else if(buffer[i] == '\n' && state == 1)
+			state = 2;
+		else if(buffer[i] == '\r' && state == 2)
+			state = 3;
+		else if(buffer[i] == '\n' && state == 3)
+			state = 4;
+		else if(state == 4){
+			//fprintf(stderr, "Found newline\n");
+			result[j++] = buffer[i];
+		}	else {
+			state = 0;
+		}
+	}
+	result[j] = '\0';
+}
+
+
+void processUpload(char *buffer, char *title, char *text){
+	char c;
+	int i = 0;
+	int j = 0;
+	int state = 0;
+	while(((c = buffer[i]) != '\0') && (c != EOF)){
+		i++;
+		if(c == '=' && state == 0){
+			state = 1;
+		} else if(state == 1){
+			if(c == '&'){
+				state = 2;
+				title[j] = '\0';
+				j = 0;
+			} else {
+				title[j] = c;
+				j++;
+			}
+		} else if(state == 2){
+			if(c == '='){
+				state = 3;
+			}
+		} else if(state == 3){
+			text[j] = c;
+			j++;
+		}
+	}
+	text[j] = '\0';
+}
+
+
+char from_hex(char ch) {
+  return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+}
+
+
+char to_hex(char code) {
+  static char hex[] = "0123456789abcdef";
+  return hex[code & 15];
+}
+
+
+char *url_encode(char *str) {
+  char *pstr = str, *buf = malloc(strlen(str) * 3 + 1), *pbuf = buf;
+
+  while (*pstr) {
+    if (isalnum(*pstr) || *pstr == '-' || *pstr == '_' || *pstr == '.' || *pstr == '~')
+      *pbuf++ = *pstr;
+    else if (*pstr == ' ')
+      *pbuf++ = '+';
+    else
+      *pbuf++ = '%', *pbuf++ = to_hex(*pstr >> 4), *pbuf++ = to_hex(*pstr & 15);
+    pstr++;
+  }
+  *pbuf = '\0';
+  return buf;
+}
+
+
+char *url_decode(char *str) {
+  char *pstr = str, *buf = malloc(strlen(str) + 1), *pbuf = buf;
+  while (*pstr) {
+    if (*pstr == '%') {
+      if (pstr[1] && pstr[2]) {
+        *pbuf++ = from_hex(pstr[1]) << 4 | from_hex(pstr[2]);
+        pstr += 2;
+      }
+    } else if (*pstr == '+') {
+      *pbuf++ = ' ';
+    } else {
+      *pbuf++ = *pstr;
+    }
+    pstr++;
+  }
+  *pbuf = '\0';
+  return buf;
+}
+
+
+void writePost(char *title, char *text){
+	FILE *template = fopen("PreTemplate.html", "r");
+	if(template == NULL){
+		fprintf(stderr, "file can\'t open:\n%s\n", "PreTemplate.html");
+		return;
+	}
+	char *templateText = malloc(2048);
+	char c;
+	int i = 0;
+	while((c = fgetc(template)) != EOF){
+		templateText[i++] = c;
+	}
+	templateText[i] = '\0';
+	fclose(template);
+	char *sanitizedTitle = malloc(strlen(title)+1);
+	cleanPostName(title, sanitizedTitle);
+	char *fname = malloc(strlen(title)+19);
+	char *folder = "public/posts/";
+	strcpy(fname, folder);
+	strcat(fname, sanitizedTitle);
+	free(sanitizedTitle);
+	char *ending = ".html";
+	strcat(fname, ending);
+	FILE* postF = fopen(fname, "w");
+	if(postF == NULL){
+		fprintf(stderr, "file can\'t open:\n%s\n", fname);
+		return;
+	}
+	i = 0;
+	while((c = templateText[i]) != '\0'){
+		fputc(c, postF);
+		i++;
+	}
+	free(templateText);
+	fprintf(postF, "\t\t<h1>%s</h1>\n", title);
+	fprintf(postF, "\t\t<p>");
+	while(((c = *text++) != EOF) && (c != '\0')){
+		if(c == '\n')
+			fprintf(postF, "</p>\n\t\t<p>");
+		else
+			fputc(c, postF);
+	}
+	fprintf(postF, "</p>\n\t</body>\n</html>");
+	fclose(postF);
+	free(fname);
+}
+
+void cleanPostName(char *postName, char *result){
+	char c;
+	int i = 0;
+	while((c = postName[i]) != '\0'){
+		if(c == ' ')
+			result[i] = '-';
+		else
+			result[i] = c;
+		i++;
+	}
+	result[i] = '\0';
+}
+
+void updateIndex(){
+	system("python addposts.py");
 }
