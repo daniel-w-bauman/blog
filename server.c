@@ -200,7 +200,7 @@ void report(struct sockaddr_in *serverAddress) {
 void sendBody(int fd, char *fname) {
 	dprintf(fd, "%s", HTTP_HEADER);
 	char line[100];
-	char filename[1024] = "public/";
+	char filename[1024] = "docs/";
 	strcat(filename, fname);
 	FILE *htmlData = fopen(filename, "r");
 	if(htmlData == NULL){
@@ -439,8 +439,8 @@ void writePost(char *title, char *text){
 	fclose(template);
 	char *sanitizedTitle = malloc(strlen(title)+1);
 	cleanPostName(title, sanitizedTitle);
-	char *fname = malloc(strlen(title)+19);
-	char *folder = "public/posts/";
+	char *fname = malloc(strlen(title)+18);
+	char *folder = "docs/posts/";
 	strcpy(fname, folder);
 	strcat(fname, sanitizedTitle);
 	free(sanitizedTitle);
