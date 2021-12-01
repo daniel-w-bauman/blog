@@ -64,6 +64,8 @@ void cleanPostName(char *postName, char *result);
 
 void updateIndex();
 
+void removeBlog(char *address);
+
 int serverSocket;
 
 User users[] = {{"daniel", "danielpass", -1}, {"charlie", "charliepass", -1}};
@@ -129,6 +131,7 @@ int main(void) {
 				getFirstLine(buffer, firstline);
 				char *address = malloc(strlen(firstline));
 				getAddress(firstline, address);
+				removeBlog(address); // in case link is from github
 				sendBody(clientSocket, address);
 				free(address);
 				free(firstline);
@@ -238,6 +241,8 @@ int requestType(char *request){
 	int category = -1;
 	if(strcmp(firstline, "GET / HTTP/1.1") == 0){
 		category = 0;
+	} else if(strcmp(firstline, "GET /blog/ HTTP/1.1") == 0){
+		category = 0;
 	} else if(strcmp(firstline, "POST /signin HTTP/1.1") == 0){
 		category = 2;
 	} else if(strcmp(firstline, "POST /upload HTTP/1.1") == 0){
@@ -334,7 +339,6 @@ void getPostBody(char *buffer, char *result){
 		else if(buffer[i] == '\n' && state == 3)
 			state = 4;
 		else if(state == 4){
-			//fprintf(stderr, "Found newline\n");
 			result[j++] = buffer[i];
 		}	else {
 			state = 0;
@@ -485,4 +489,24 @@ void cleanPostName(char *postName, char *result){
 
 void updateIndex(){
 	system("python addposts.py");
+}
+
+
+// If address begins with blog/ (github pages address), remove that part of the address
+void removeBlog(char *address){
+	if(strlen(address) < 5){
+		return;
+	}
+	char *firstFive = malloc(6);
+	for(int i = 0; i < 5; i++){
+		firstFive[i] = address[i];
+	}
+	firstFive[5] = '\0';
+	if(strcmp(firstFive, "blog/") == 0){
+		for(size_t i = 5; i < strlen(address); i++){
+			address[i-5] = address[i];
+		}
+		address[strlen(address)-5] = '\0';
+	}
+	free(firstFive);
 }
