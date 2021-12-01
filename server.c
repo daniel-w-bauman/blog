@@ -428,19 +428,6 @@ char *url_decode(char *str) {
 
 
 void writePost(char *title, char *text){
-	FILE *template = fopen("PreTemplate.html", "r");
-	if(template == NULL){
-		fprintf(stderr, "file can\'t open:\n%s\n", "PreTemplate.html");
-		return;
-	}
-	char *templateText = malloc(2048);
-	char c;
-	int i = 0;
-	while((c = fgetc(template)) != EOF){
-		templateText[i++] = c;
-	}
-	templateText[i] = '\0';
-	fclose(template);
 	char *sanitizedTitle = malloc(strlen(title)+1);
 	cleanPostName(title, sanitizedTitle);
 	char *fname = malloc(strlen(title)+18);
@@ -455,21 +442,17 @@ void writePost(char *title, char *text){
 		fprintf(stderr, "file can\'t open:\n%s\n", fname);
 		return;
 	}
-	i = 0;
-	while((c = templateText[i]) != '\0'){
-		fputc(c, postF);
-		i++;
-	}
-	free(templateText);
-	fprintf(postF, "\t\t<h1>%s</h1>\n", title);
-	fprintf(postF, "\t\t<p>");
+	fprintf(postF, "<div>\n");
+	fprintf(postF, "\t<h1>%s</h1>\n", title);
+	fprintf(postF, "\t<p>");
+	char c;
 	while(((c = *text++) != EOF) && (c != '\0')){
 		if(c == '\n')
-			fprintf(postF, "</p>\n\t\t<p>");
+			fprintf(postF, "</p>\n\t<p>");
 		else
 			fputc(c, postF);
 	}
-	fprintf(postF, "</p>\n\t</body>\n</html>");
+	fprintf(postF, "</p>\n</div>");
 	fclose(postF);
 	free(fname);
 }
