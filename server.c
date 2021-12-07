@@ -24,11 +24,6 @@
 #define NUM_POSTS 5
 #define HTTP_HEADER "HTTP/1.1 200 OK\r\n\n"
 
-typedef struct {
-	char *username;
-	char *password;
-	int token;
-} User;
 
 void report(struct sockaddr_in *serverAddress);
 
@@ -40,11 +35,7 @@ int requestType(char *request);
 
 void getAddress(char *buffer, char *result);
 
-void getCreds(char *buffer, char *username, char *password);
-
 void ctrlcHandler(int signaln);
-
-int login(User user);
 
 void getPostBody(char *buffer, char *result);
 
@@ -68,9 +59,6 @@ void removeBlog(char *address);
 
 int serverSocket;
 
-User users[] = {{"daniel", "danielpass", -1}, {"charlie", "charliepass", -1}};
-
-int tokenN = 0;
 
 int main(void) {
 	signal(SIGINT, ctrlcHandler);
@@ -135,23 +123,7 @@ int main(void) {
 				sendBody(clientSocket, address);
 				free(address);
 				free(firstline);
-			} else if(rtype == 2){ // POST /signin
-				char *postBody = malloc(2048);
-				getPostBody(buffer, postBody);
-				char *username = malloc(strlen(postBody));
-				char *password = malloc(strlen(postBody));
-				getCreds(postBody, username, password);
-				int token = login((User){username, password, -1});
-				if(token == -1){
-					fprintf(stderr, "login unsuccessful for %s\n", username);
-				} else {
-					fprintf(stderr, "login successful for %s, token is %d\n", username, token);
-				}
-				sendBody(clientSocket, "login.html");
-				free(password);
-				free(username);
-				free(postBody);
-			} else if(rtype == 3){ // POST /upload
+			} else if(rtype == 2){ // POST /upload
 				char *postBody = malloc(2048);
 				getPostBody(buffer, postBody);
 				char *title = malloc(strlen(postBody));
@@ -232,8 +204,7 @@ void getFirstLine(char *buffer, char *result){
 	-1 (default) - error
 	0 - get /
 	1 - get /something
-	2 - post /signin
-	3 - post /upload
+	2 - post /upload
 */
 int requestType(char *request){
 	char firstline[2048];
@@ -243,10 +214,8 @@ int requestType(char *request){
 		category = 0;
 	} else if(strcmp(firstline, "GET /blog/ HTTP/1.1") == 0){
 		category = 0;
-	} else if(strcmp(firstline, "POST /signin HTTP/1.1") == 0){
-		category = 2;
 	} else if(strcmp(firstline, "POST /upload HTTP/1.1") == 0){
-		category = 3;
+		category = 2;
 	} else {
 		char buffer[4];
 		buffer[0] = request[0];
@@ -272,54 +241,12 @@ void getAddress(char *buffer, char *result){
 }
 
 
-void getCreds(char *buffer, char *username, char *password){
-	char c;
-	int state = 0;
-	while((c = *buffer++) != '\0'){
-		if(state == 0){
-			if(c == '='){
-				state = 1;
-			}
-		} else if(state == 1){
-			if(c == '&'){
-				state = 2;
-			} else {
-				*username++ = c;
-			}
-		} else if(state == 2){
-			if(c == '='){
-				state = 3;
-			}
-		} else if(state == 3){
-			*password++ = c;
-		}
-	}
-	*username++ = '\0';
-	*password++ = '\0';
-}
-
-
 void ctrlcHandler(int signaln){
 	(void)signaln;
 	shutdown(serverSocket, SHUT_RDWR);
 	close(serverSocket);
 	fprintf(stdout, "shutting down server.\n");
 	exit(1);
-}
-
-
-int login(User user){
-	int token = -1;
-	for(size_t i = 0; i < (sizeof users / sizeof *users); i++){
-		if(strcmp(user.username, users[i].username) == 0){
-			if(strcmp(user.password, users[i].password) == 0){
-				token = tokenN;
-				tokenN++;
-				users[i].token = token;
-			}
-		}
-	}
-	return token;
 }
 
 
@@ -456,6 +383,7 @@ void writePost(char *title, char *text){
 	fclose(postF);
 	free(fname);
 }
+
 
 void cleanPostName(char *postName, char *result){
 	char c;
