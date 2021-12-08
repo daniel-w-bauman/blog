@@ -89,12 +89,8 @@
 		</style>
 		<script>
 			window.onload = async () => {
-				alert('script is running')
-				const testTag = document.querySelector("#test")
-				const testNode = document.createTextNode('Test script')
-				testTag.appendChild(testNode)
 				const postsTag = document.querySelector('#posts')
-				const postsListResp = await fetch('http://localhost:3000/posts/')
+				const postsListResp = await fetch('http://localhost:3000/posts/', {headers: {mode: 'no-cors'}})
 				let postsList = await postsListResp.text()
 				postsList = postsList.split(' ')
 				postsList.pop() // remove last space separator
@@ -122,7 +118,6 @@
 			</ul>
 		</div>
 		<div id="content">
-			<p style="padding-left: 50%" id="test"></p>
 			<iframe name="blogpost" src="/blog/choose.html" title="Blog Post"></iframe>
 		</div>
 	</body>
