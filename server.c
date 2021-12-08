@@ -129,6 +129,7 @@ int main(void) {
 				char posts[2048] = {0};
 				getPosts(posts);
 				dprintf(clientSocket, "%s", HTTP_HEADER);
+				dprintf(clientSocket, "Access-Control-Allow-Origin: *\r\n");
 				dprintf(clientSocket, "%s\r\n", posts);
 			} else if(rtype == 3){ // POST /upload
 				char *postBody = malloc(2048);
@@ -234,6 +235,8 @@ int requestType(char *request){
 		buffer[3] = '\0';
 		if(strcmp(buffer, "GET") == 0){
 			category = 1;
+		} else {
+			fprintf(stderr, "Invalid request: %s\n", firstline);
 		}
 	}
 	return category;
