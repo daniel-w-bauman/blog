@@ -89,6 +89,10 @@
 		</style>
 		<script>
 			window.onload = async () => {
+				alert('script is running')
+				const testTag = document.querySelector("#test")
+				const testNode = document.createTextNode('Test script')
+				testTag.appendChild(testNode)
 				const postsTag = document.querySelector('#posts')
 				const postsListResp = await fetch('http://localhost:3000/posts/')
 				let postsList = await postsListResp.text()
@@ -118,7 +122,7 @@
 			</ul>
 		</div>
 		<div id="content">
-			<p style="padding-left: 70%" id="test"></p>
+			<p style="padding-left: 50%" id="test"></p>
 			<iframe name="blogpost" src="/blog/choose.html" title="Blog Post"></iframe>
 		</div>
 	</body>
