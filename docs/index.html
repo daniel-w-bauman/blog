@@ -3,7 +3,7 @@
 	<head>
 		<title>Blog</title>
 		<link rel="icon" type="image/x-icon" href="/blog/favicon.ico">
-		
+
 		<style>
 			#posts-bar{
 				background: #EDEDED;
@@ -28,17 +28,17 @@
 			    padding: 0;
 			}
 
-			#post-item:hover{
+			.post-item:hover{
 			    background: white;
 			}
 
-			#post-item {
+			.post-item {
 			    border-bottom: 1px solid #333;
 					padding: 10px;
 					font-size: 20px;
 			}
 
-			#post-item:last-child{
+			.post-item:last-child{
 			    border: none;
 			}
 
@@ -55,7 +55,7 @@
 			}
 
 			h1 {
-				padding-left: 10%;
+				padding-left: 50%;
 			}
 
 			label {
@@ -87,20 +87,39 @@
 				width: 90%;
 			}
 		</style>
+		<script>
+			window.onload = async () => {
+				const postsTag = document.querySelector('#posts')
+				const postsListResp = await fetch('http://localhost:3000/posts/')
+				let postsList = await postsListResp.text()
+				postsList = postsList.split(' ')
+				postsList.pop() // remove last space separator
+				for(let i in postsList){
+					const doc = postsList[i]
+					const docLink = 'http://localhost:3000/posts/' + doc
+					const docName = doc.substring(0, doc.length-5) //drop the .html
+					let aItem = document.createElement('A')
+					aItem.setAttribute("target", "blogpost")
+					aItem.setAttribute("href", docLink)
+					let textNode = document.createTextNode(docName)
+					aItem.appendChild(textNode)
+					let listItem = document.createElement('LI')
+					listItem.className = "post-item"
+					listItem.appendChild(aItem)
+					postsTag.appendChild(listItem)
+				}
+			}
+		</script>
 	</head>
 	<body>
 		<h1>Blog</h1>
 		<div id="posts-bar">
 			<ul id="posts">
-				<li id="post-item"><a href="/blog/posts/post1.html" target="blogpost">post1</a></li>
-				<li id="post-item"><a href="/blog/posts/post2.html" target="blogpost">post2</a></li>
-				<li id="post-item"><a href="/blog/posts/post3.html" target="blogpost">post3</a></li>
-				<li id="post-item"><a href="/blog/posts/post4.html" target="blogpost">post4</a></li>
-				<li id="post-item"><a href="/blog/posts/post5.html" target="blogpost">post5</a></li>
 			</ul>
 		</div>
 		<div id="content">
-			<iframe name="blogpost" src="/blog/posts/post1.html" title="Blog Post"></iframe>
+			<p style="padding-left: 70%" id="test"></p>
+			<iframe name="blogpost" src="/blog/choose.html" title="Blog Post"></iframe>
 		</div>
 	</body>
 </html>

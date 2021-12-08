@@ -57,6 +57,8 @@ void updateIndex();
 
 void removeBlog(char *address);
 
+void getPosts(char *buffer);
+
 int serverSocket;
 
 
@@ -123,7 +125,12 @@ int main(void) {
 				sendBody(clientSocket, address);
 				free(address);
 				free(firstline);
-			} else if(rtype == 2){ // POST /upload
+			} else if(rtype == 2) {
+				char posts[2048] = {0};
+				getPosts(posts);
+				dprintf(clientSocket, "%s", HTTP_HEADER);
+				dprintf(clientSocket, "%s\r\n", posts);
+			} else if(rtype == 3){ // POST /upload
 				char *postBody = malloc(2048);
 				getPostBody(buffer, postBody);
 				char *title = malloc(strlen(postBody));
@@ -203,8 +210,9 @@ void getFirstLine(char *buffer, char *result){
 	Categorization of requests:
 	-1 (default) - error
 	0 - get /
-	1 - get /something
-	2 - post /upload
+	1 - get /something else
+	2 - get /posts
+	3 - post /upload
 */
 int requestType(char *request){
 	char firstline[2048];
@@ -214,8 +222,10 @@ int requestType(char *request){
 		category = 0;
 	} else if(strcmp(firstline, "GET /blog/ HTTP/1.1") == 0){
 		category = 0;
-	} else if(strcmp(firstline, "POST /upload HTTP/1.1") == 0){
+	} else if(strcmp(firstline, "GET /posts/ HTTP/1.1") == 0){
 		category = 2;
+	} else if(strcmp(firstline, "POST /upload HTTP/1.1") == 0){
+		category = 3;
 	} else {
 		char buffer[4];
 		buffer[0] = request[0];
@@ -420,4 +430,24 @@ void removeBlog(char *address){
 		address[strlen(address)-5] = '\0';
 	}
 	free(firstFive);
+}
+
+
+void getPosts(char *buffer) {
+	struct dirent *dp;
+	DIR *dir = opendir("docs/posts/");
+
+	// Unable to open directory stream
+	if (!dir)
+		return;
+
+	while((dp = readdir(dir)) != NULL){
+		if(strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0){
+			strcat(buffer, dp->d_name);
+			strcat(buffer, " ");
+		}
+	}
+
+	// Close directory stream
+	closedir(dir);
 }
