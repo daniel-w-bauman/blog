@@ -125,11 +125,11 @@ int main(void) {
 				sendBody(clientSocket, address);
 				free(address);
 				free(firstline);
-			} else if(rtype == 2) {
+			} else if(rtype == 2) { // GET / posts /
 				char posts[2048] = {0};
 				getPosts(posts);
-				dprintf(clientSocket, "%s", HTTP_HEADER);
-				dprintf(clientSocket, "Access-Control-Allow-Origin: *\r\n");
+//				dprintf(clientSocket, "%s", HTTP_HEADER);
+				dprintf(clientSocket, "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\n\r\n");
 				dprintf(clientSocket, "%s\r\n", posts);
 			} else if(rtype == 3){ // POST /upload
 				char *postBody = malloc(2048);
