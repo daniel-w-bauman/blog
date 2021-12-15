@@ -46,7 +46,7 @@
 				let title = titleElement.value
 				let text = textElement.value
 				let token = document.cookie
-				const uploadResp = await fetch('http://localhost:3000/upload/', )
+				const uploadResp = await fetch('http://localhost:3000/uploaTitle of d/', )
 				let postsList = await postsListResp.text()
 			}
 		</script>
@@ -54,7 +54,7 @@
 	<body>
 		<div>
 			<a href="/blog/">Return Home</a>
-			<form method="POST" action="/upload">
+			<form method="POST" action="/blog/upload">
 			  <div>
 			    <label>Title:</label>
 			    <input type="text" id="title" name="title" placeholder="Title of the article...">
