@@ -2,22 +2,70 @@
 <html>
 	<head>
 		<title>Blog</title>
+		<style>
+			textarea {
+				font-size: 20px;
+				margin: 20px;
+			}
+
+			label {
+				font-size: 25px;
+				margin: 20px;
+			}
+
+			input {
+				font-size: 25px;
+				margin: 20px;
+			}
+
+			button {
+				font-size: 20px;
+				margin: 20px;
+				background-color: white;
+				color: black;
+				padding: 10px;
+				border-radius: 30px;
+			}
+
+			a {
+				font-size: 25px;
+				color: black;
+			}
+
+			.textarea-div {
+				width: 100vw;
+				display:flex;
+   			justify-content:center;
+			}
+		</style>
+		<script>
+			upload = async (e) => {
+				e.preventDefault()
+				const titleElement = document.querySelector('#title')
+				const textElement = document.querySelector('#text')
+				let title = titleElement.value
+				let text = textElement.value
+				let token = document.cookie
+				const uploadResp = await fetch('http://localhost:3000/upload/', )
+				let postsList = await postsListResp.text()
+			}
+		</script>
 	</head>
 	<body>
 		<div>
+			<a href="/blog/">Return Home</a>
 			<form method="POST" action="/upload">
 			  <div>
-			    <label>Title</label>
-			    <input type="text" name="title">
+			    <label>Title:</label>
+			    <input type="text" id="title" name="title" placeholder="Title of the article...">
+					<button type="submit" class="btn btn-primary">Upload</button>
 			  </div>
 			  <div class="mb-2">
-			    <label class="form-label">Text</label>
-					<button type="submit" class="btn btn-primary">Upload</button>
-					<br>
-			    <textarea name="text" class="form-control" rows=50 cols="100"></textarea>
+					<div class="textarea-div">
+			    	<textarea name="text" id="text" class="form-control" rows=30 cols="75" placeholder="Post text goes here..."></textarea>
+					</div>
 			  </div>
 			</form>
-			<a href="/blog/">Return</a>
 		</div>
 	</body>
 </html>

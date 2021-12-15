@@ -82,7 +82,6 @@ int main(void) {
 				char *decoded_title = url_decode(title);
 				char *decoded_text = url_decode(text);
 				writePost(decoded_title, decoded_text);
-				updateIndex();
 				sendBody(clientSocket, "post.html");
 				free(decoded_text);
 				free(decoded_title);

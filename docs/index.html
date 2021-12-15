@@ -55,36 +55,21 @@
 			}
 
 			h1 {
-				margin-left: 55%;
+				margin-left: 40%;
 				font-family: sans-serif;
-			}
-
-			label {
-				font-size: 25px;
-				margin: 20px;
-			}
-
-			input {
-				font-size: 25px;
-				margin: 20px;
-			}
-
-			textarea {
-				font-size: 15px;
-				margin: 20px;
 			}
 
 			button {
 				font-size: 20px;
 				margin: 20px;
-				background-color: #0000F9;
-				color: white;
+				background-color: white;
+				color: black;
 				padding: 10px;
 				border-radius: 30px;
 			}
 
 			iframe {
-				height: 75vh;
+				height: 60vh;
 				width: 90%;
 			}
 		</style>
@@ -113,12 +98,14 @@
 		</script>
 	</head>
 	<body>
-		<h1>Blog</h1>
 		<div id="posts-bar">
 			<ul id="posts">
 			</ul>
 		</div>
 		<div id="content">
+			<h1>Blog</h1>
+			<button onClick="window.location.href='/blog/post.html';">Upload Post</button>
+			<br>
 			<iframe name="blogpost" src="/blog/choose.html" title="Blog Post"></iframe>
 		</div>
 	</body>
